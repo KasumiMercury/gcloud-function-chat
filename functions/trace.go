@@ -40,6 +40,8 @@ func InitTracing() *trace.TracerProvider {
 		slog.Error(
 			fmt.Sprintf("Failed to create exporter: %v", err),
 		)
+
+		panic(err)
 	}
 
 	resources, err := resource.New(
@@ -55,6 +57,8 @@ func InitTracing() *trace.TracerProvider {
 		slog.Error(
 			fmt.Sprintf("Failed to create resource: %v", err),
 		)
+
+		panic(err)
 	}
 
 	tp := trace.NewTracerProvider(
