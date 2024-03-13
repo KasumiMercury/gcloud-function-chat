@@ -2,7 +2,6 @@ package functions
 
 import (
 	"context"
-	"fmt"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
@@ -37,7 +36,7 @@ func InstrumentedHandler(name string, function HttpHandler, flusher Flush) HttpH
 			// If ForceFlush() execution fails, spans are sent to the background and may be missing,
 			// but are tolerated and ignored.
 			slog.Error(
-				fmt.Sprintf("Failed to flush: %v", err),
+				"Failed to flush spans : %v", err,
 			)
 		}
 	}
