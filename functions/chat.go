@@ -7,7 +7,9 @@ import (
 )
 
 func init() {
-	functions.HTTP("chat", chatWatcher)
+	tp := InitTracing()
+	handler := InstrumentedHandler("chat", chatWatcher, tp)
+	functions.HTTP("chat", handler)
 }
 
 func chatWatcher(w http.ResponseWriter, r *http.Request) {
