@@ -2,7 +2,6 @@ package functions
 
 import (
 	"context"
-	"fmt"
 	"go.opentelemetry.io/contrib/detectors/gcp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -15,7 +14,7 @@ import (
 	"os"
 )
 
-func InitTracing() *trace.TracerProvider {
+func InitTracing() (*trace.TracerProvider, error) {
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 	if projectID == "" {
 		panic("GOOGLE_CLOUD_PROJECT must be set")
@@ -37,11 +36,12 @@ func InitTracing() *trace.TracerProvider {
 
 	exporter, err := otlptrace.New(ctx, client)
 	if err != nil {
+		group := slog.Group("InitTracing")
 		slog.Error(
-			fmt.Sprintf("Failed to create exporter: %v", err),
+			"Failed to create OTLP trace exporter: %v", err, group,
 		)
 
-		panic(err)
+		return nil, err
 	}
 
 	resources, err := resource.New(
@@ -54,11 +54,12 @@ func InitTracing() *trace.TracerProvider {
 		),
 	)
 	if err != nil {
+		group := slog.Group("InitTracing")
 		slog.Error(
-			fmt.Sprintf("Failed to create resource: %v", err),
+			"Failed to create resource: %v", err, group,
 		)
 
-		panic(err)
+		return nil, err
 	}
 
 	tp := trace.NewTracerProvider(
@@ -72,5 +73,5 @@ func InitTracing() *trace.TracerProvider {
 	// W3C Trace Context propagator
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
-	return tp
+	return tp, nil
 }
