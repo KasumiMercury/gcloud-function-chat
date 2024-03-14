@@ -62,7 +62,11 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	targetChannels := strings.Split(targetChannelIdStr, ",")
 
 	// Initialize span
-	span := getSpanQuery(r.URL)
+	span, err := getSpanQuery(r.URL)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	// Initialize threshold time for filtering chats
 	threshold := time.Now().Add(-time.Duration(span) * time.Minute).Unix()
 
