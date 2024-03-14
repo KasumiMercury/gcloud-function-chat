@@ -93,6 +93,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// If the length of the staticChats is 0, return
 	if len(staticChats) == 0 {
 		slog.Info("No chats found")
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -122,6 +123,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.WriteHeader(http.StatusOK)
 	slog.Info("chatWatcher")
 }
 
