@@ -96,6 +96,18 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check publishedAt of the last chat and update threshold if the last chat is newer than the threshold set by span
+	// for preventing the same chat from being inserted multiple times
+	lastRecordedChat, err := getLastPublishedAtOfRecord(r.Context(), dbClient)
+	if err != nil {
+		slog.Error("Failed to get last recorded chat: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if lastRecordedChat != nil && *lastRecordedChat > threshold {
+		threshold = *lastRecordedChat
+	}
+
 	// Filter chats by publishedAt
 	staticChats = filterChatsByPublishedAt(staticChats, threshold)
 	targetChat, _ := separateChatsByAuthor(staticChats, targetChannels)
