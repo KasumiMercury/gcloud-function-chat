@@ -45,7 +45,7 @@ func filterChatsByPublishedAt(chats []Chat, threshold int64) []Chat {
 
 	for i, chat := range chats {
 		// If the chat's publishedAt is greater than the threshold, append the chat to the result
-		if chat.PublishedAt > threshold {
+		if chat.PublishedAtUnix > threshold {
 			filteredChats = chats[i:]
 			break
 		}
@@ -86,7 +86,7 @@ func convertChatsToRecords(chats []Chat) []ChatRecord {
 		chatRecords = append(chatRecords, ChatRecord{
 			Message:     chat.Message,
 			SourceID:    chat.SourceID,
-			PublishedAt: time.Unix(chat.PublishedAt, 0),
+			PublishedAt: time.Unix(chat.PublishedAtUnix, 0),
 		})
 	}
 

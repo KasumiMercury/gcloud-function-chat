@@ -149,7 +149,7 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 		result = append(result, Chat{
 			AuthorChannelID: item.Snippet.AuthorChannelId,
 			Message:         item.Snippet.DisplayMessage,
-			PublishedAt:     pa.Unix(),
+			PublishedAtUnix: pa.Unix(),
 			SourceID:        video.SourceID,
 		})
 	}

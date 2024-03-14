@@ -8,7 +8,7 @@ import (
 type Chat struct {
 	AuthorChannelID string
 	Message         string
-	PublishedAt     int64
+	PublishedAtUnix int64
 	SourceID        string
 }
 
