@@ -2,6 +2,7 @@ package functions
 
 import (
 	"context"
+	"github.com/joho/godotenv"
 	"go.opentelemetry.io/contrib/detectors/gcp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -10,11 +11,21 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"log"
 	"log/slog"
 	"os"
 )
 
 func InitTracing() (*trace.TracerProvider, error) {
+	// If environment file exists, load it
+	// this is for local development
+	// this function is called from init() in main function
+	if _, err := os.Stat(".env"); err == nil {
+		if err := godotenv.Load(); err != nil {
+			log.Fatalf("godotenv.Load: %v\n", err)
+		}
+	}
+
 	projectID := os.Getenv("GOOGLE_CLOUD_PROJECT")
 	if projectID == "" {
 		panic("GOOGLE_CLOUD_PROJECT must be set")
@@ -38,7 +49,9 @@ func InitTracing() (*trace.TracerProvider, error) {
 	if err != nil {
 		group := slog.Group("InitTracing")
 		slog.Error(
-			"Failed to create OTLP trace exporter: %v", err, group,
+			"Failed to create OTLP trace exporter",
+			slog.String("error", err.Error()),
+			group,
 		)
 
 		return nil, err
@@ -56,7 +69,9 @@ func InitTracing() (*trace.TracerProvider, error) {
 	if err != nil {
 		group := slog.Group("InitTracing")
 		slog.Error(
-			"Failed to create resource: %v", err, group,
+			"Failed to create resource",
+			slog.String("error", err.Error()),
+			group,
 		)
 
 		return nil, err
