@@ -90,6 +90,12 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the length of the staticChats is 0, return
+	if len(staticChats) == 0 {
+		slog.Info("No chats found")
+		return
+	}
+
 	// Filter chats by publishedAt
 	staticChats = filterChatsByPublishedAt(staticChats, threshold)
 	targetChat, _ := separateChatsByAuthor(staticChats, targetChannels)
