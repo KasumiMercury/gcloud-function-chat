@@ -70,8 +70,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	ytSvc, err := youtube.NewService(ctx, option.WithAPIKey(ytApiKey))
 	if err != nil {
 		slog.Error("Failed to create YouTube service",
-			"error", err,
-			slog.Group("YouTubeAPI"),
+			slog.Group("YouTubeAPI", "error", err),
 		)
 		return
 	}
@@ -98,8 +97,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	staticChats, err := fetchChatsByChatID(ctx, ytSvc, staticTarget, 0)
 	if err != nil {
 		slog.Error("Failed to fetch chats from static target",
-			"error", err,
-			slog.Group("chatID", staticTarget.ChatID, slog.Group("YouTubeAPI")),
+			slog.Group("fetchChat", "chatId", staticTarget.ChatID, "error", err),
 		)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -160,8 +158,7 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 	if err != nil {
 		slog.Error(
 			"Failed to run LiveChatMessages.List",
-			"error", err,
-			slog.Group("chatID", video.ChatID, slog.Group("YouTubeAPI")),
+			slog.Group("fetchChat", "chatId", video.ChatID, slog.Group("YouTubeAPI"), "error", err),
 		)
 		return nil, err
 	}
@@ -171,8 +168,7 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 		pa, err := synchro.ParseISO[tz.AsiaTokyo](item.Snippet.PublishedAt)
 		if err != nil {
 			slog.Error("Failed to parse publishedAt",
-				"error", err,
-				slog.Group("chatID", video.ChatID, slog.Group("formatting")),
+				slog.Group("fetchChat", "chatID", video.ChatID, slog.Group("formatting", "error", err, "publishedAt", item.Snippet.PublishedAt)),
 			)
 			return nil, err
 		}
