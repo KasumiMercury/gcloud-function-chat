@@ -72,6 +72,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to create YouTube service",
 			slog.Group("YouTubeAPI", "error", err),
 		)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	// Create Database Client
@@ -80,6 +81,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to create Database client",
 			slog.Group("database", "error", err),
 		)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
