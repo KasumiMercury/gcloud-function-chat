@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 )
 
 func init() {
@@ -39,6 +40,8 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 
 	// Initialize span
 	span := getSpanQuery(r.URL)
+	// Initialize threshold time for filtering chats
+	threshold := time.Now().Add(-time.Duration(span) * time.Minute).Unix()
 
 	// Create YouTube service
 	ytSvc, err := youtube.NewService(r.Context(), option.WithAPIKey(ytApiKey))
@@ -63,6 +66,10 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+
+	// Filter chats by publishedAt
+	staticChats = filterChatsByPublishedAt(staticChats, threshold)
+
 	slog.Info("staticChats", staticChats)
 	slog.Info("chatWatcher")
 }

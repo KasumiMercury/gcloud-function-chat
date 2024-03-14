@@ -34,3 +34,21 @@ func getSpanQuery(u *url.URL) int {
 	// Return the value
 	return spanInt
 }
+
+func filterChatsByPublishedAt(chats []Chat, threshold int64) []Chat {
+	// Filter the chats by the threshold
+	// The chats are already sorted by the publishedAt in ascending order (constraint of the YouTube API)
+
+	var filteredChats []Chat
+
+	for i, chat := range chats {
+		// If the chat's publishedAt is greater than the threshold, append the chat to the result
+		if chat.PublishedAt > threshold {
+			filteredChats = chats[i:]
+			break
+		}
+	}
+
+	// Return the result
+	return filteredChats
+}
