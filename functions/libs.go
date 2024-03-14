@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"fmt"
 	"log/slog"
 	"net/url"
 	"slices"
@@ -38,7 +39,7 @@ func getSpanQuery(u *url.URL) (int, error) {
 	// When the value is too large, return an error
 	if spanInt > 10080 {
 		slog.Error("Failed to set span because of too large value")
-		return defVal, err
+		return defVal, fmt.Errorf("span value too large: %d exceeds maximum of 10080", spanInt)
 	}
 
 	// Return the value
