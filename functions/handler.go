@@ -37,7 +37,7 @@ func InstrumentedHandler(name string, function HttpHandler, flusher Flush) HttpH
 			// but are tolerated and ignored.
 			slog.Error(
 				"Failed to flush spans",
-				slog.String("error", err.Error()),
+				slog.Group("tracing", slog.Group("forceFlush", "error", err)),
 			)
 		}
 	}
