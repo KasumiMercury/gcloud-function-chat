@@ -21,7 +21,7 @@ func (h *CustomHandler) Handle(ctx context.Context, r slog.Record) error {
 func NewCustomLogger(ctx context.Context) *slog.Logger {
 	svcName := os.Getenv("SERVICE_NAME")
 	if svcName == "" {
-		svcName = "local"
+		svcName = "fetch-chat-function"
 	}
 
 	handler := CustomHandler{
