@@ -62,7 +62,11 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	targetChannels := strings.Split(targetChannelIdStr, ",")
 
 	// Initialize span
-	span := getSpanQuery(r.URL)
+	span, err := getSpanQuery(r.URL)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	// Initialize threshold time for filtering chats
 	threshold := time.Now().Add(-time.Duration(span) * time.Minute).Unix()
 
@@ -72,6 +76,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to create YouTube service",
 			slog.Group("YouTubeAPI", "error", err),
 		)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	// Create Database Client
@@ -80,6 +85,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to create Database client",
 			slog.Group("database", "error", err),
 		)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -99,7 +105,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to fetch chats from static target",
 			slog.Group("fetchChat", "chatId", staticTarget.ChatID, "error", err),
 		)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -117,7 +123,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to get last recorded chat",
 			slog.Group("saveChat", slog.Group("database", "error", err)),
 		)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if lastRecordedChat != 0 && lastRecordedChat > threshold {
@@ -136,7 +142,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to insert chat records",
 			slog.Group("saveChat", slog.Group("database", "error", err)),
 		)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
