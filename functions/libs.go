@@ -3,6 +3,7 @@ package functions
 import (
 	"log/slog"
 	"net/url"
+	"slices"
 	"strconv"
 )
 
@@ -51,4 +52,24 @@ func filterChatsByPublishedAt(chats []Chat, threshold int64) []Chat {
 
 	// Return the result
 	return filteredChats
+}
+
+func separateChatsByAuthor(chats []Chat, target []string) ([]Chat, []Chat) {
+	// Separate the chats by the author channel ID
+	// The target list is the list of the author channel IDs to be separated
+
+	var targetChats []Chat
+	var otherChats []Chat
+
+	for _, chat := range chats {
+		// If the chat's author is in the target list, append the chat to the targetChats
+		if slices.Contains(target, chat.AuthorChannelID) {
+			targetChats = append(targetChats, chat)
+		} else {
+			otherChats = append(otherChats, chat)
+		}
+	}
+
+	// Return the result
+	return targetChats, otherChats
 }

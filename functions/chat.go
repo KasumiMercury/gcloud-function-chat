@@ -78,8 +78,9 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 
 	// Filter chats by publishedAt
 	staticChats = filterChatsByPublishedAt(staticChats, threshold)
+	targetChat, _ := separateChatsByAuthor(staticChats, targetChannels)
 
-	slog.Info("staticChats", staticChats)
+	slog.Info("staticChats", targetChat)
 	slog.Info("chatWatcher")
 }
 
