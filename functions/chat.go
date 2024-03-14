@@ -1,6 +1,9 @@
 package functions
 
 import (
+	"context"
+	"github.com/Code-Hex/synchro"
+	"github.com/Code-Hex/synchro/tz"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
@@ -42,4 +45,36 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slog.Info("chatWatcher")
+}
+
+func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video VideoInfo, length int64) ([]Chat, error) {
+	call := ytSvc.LiveChatMessages.List(video.ChatID, []string{"snippet"})
+
+	// If length is not 0, set the length
+	if length != 0 {
+		call = call.MaxResults(length)
+	}
+
+	call = call.Context(ctx)
+
+	resp, err := call.Do()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]Chat, 0, len(resp.Items))
+	for _, item := range resp.Items {
+		pa, err := synchro.ParseISO[tz.AsiaTokyo](item.Snippet.PublishedAt)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, Chat{
+			AuthorChannelID: item.Snippet.AuthorChannelId,
+			Message:         item.Snippet.DisplayMessage,
+			PublishedAt:     pa.Unix(),
+			SourceID:        video.SourceID,
+		})
+	}
+
+	return result, nil
 }
