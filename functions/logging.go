@@ -2,6 +2,8 @@ package functions
 
 import (
 	"context"
+	"fmt"
+	"go.opentelemetry.io/otel/trace"
 	"log/slog"
 	"os"
 )
@@ -54,6 +56,18 @@ func NewCustomLogger(ctx context.Context) *slog.Logger {
 		slog.Group("logging.googleapis.com/labels",
 			slog.String("service", svcName),
 		))
+
+	sc := trace.SpanContextFromContext(ctx)
+	if sc.IsValid() {
+		// Add trace ID to the logger
+		// Error handling when GOOGLE_CLOUD_PROJECT is undefined is already done in InitTracing()
+		traceString := fmt.Sprintf("projects/%s/traces/%s", os.Getenv("GOOGLE_CLOUD_PROJECT"), sc.TraceID().String())
+		logger = logger.With(
+			slog.String("logging.googleapis.com/trace", traceString),
+			slog.String("logging.googleapis.com/spanId", sc.SpanID().String()),
+			slog.Bool("logging.googleapis.com/trace_sampled", sc.TraceFlags().IsSampled()),
+		)
+	}
 
 	return logger
 }
