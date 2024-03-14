@@ -78,7 +78,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	dbClient, err := NewDBClient(dsn)
 	if err != nil {
 		slog.Error("Failed to create Database client",
-			"error", err,
+			slog.Group("database", "error", err),
 		)
 		return
 	}
@@ -115,7 +115,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	lastRecordedChat, err := getLastPublishedAtOfRecord(ctx, dbClient)
 	if err != nil {
 		slog.Error("Failed to get last recorded chat",
-			"error", err,
+			slog.Group("saveChat", slog.Group("database", "error", err)),
 		)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -134,7 +134,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Insert the chats to the database
 	if err := InsertChatRecord(ctx, dbClient, chatRecords); err != nil {
 		slog.Error("Failed to insert chat records",
-			"error", err,
+			slog.Group("saveChat", slog.Group("database", "error", err)),
 		)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
