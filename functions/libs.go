@@ -32,6 +32,15 @@ func getSpanQuery(u *url.URL) (int, error) {
 		return defVal, err
 	}
 
+	// Check if the value is too large
+	// Because too large value can cause generating invalid threshold
+	// Greater than 10080 minutes (7 days) is out of the use case of this function
+	// When the value is too large, return an error
+	if spanInt > 10080 {
+		slog.Error("Failed to set span because of too large value")
+		return defVal, err
+	}
+
 	// Return the value
 	return spanInt, nil
 }
