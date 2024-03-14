@@ -11,7 +11,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	"log"
 	"log/slog"
 	"os"
 )
@@ -22,7 +21,10 @@ func InitTracing() (*trace.TracerProvider, error) {
 	// this function is called from init() in main function
 	if _, err := os.Stat(".env"); err == nil {
 		if err := godotenv.Load(); err != nil {
-			log.Fatalf("godotenv.Load: %v\n", err)
+			slog.Error(
+				"Failed to load .env file",
+				slog.Group("tracing", slog.Group("InitTracing", "error", err)),
+			)
 		}
 	}
 
