@@ -13,7 +13,8 @@ type CustomHandler struct {
 }
 
 func (h *CustomHandler) Handle(ctx context.Context, r slog.Record) error {
-	// Add custom logic here
+	// TODO: Implement custom logic to extract values from the context and add them to the log.
+	// This is intended for future extensions where specific context values need to be logged.
 	return h.Handler.Handle(ctx, r)
 }
 
