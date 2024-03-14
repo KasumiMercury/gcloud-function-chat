@@ -36,7 +36,8 @@ func InstrumentedHandler(name string, function HttpHandler, flusher Flush) HttpH
 			// If ForceFlush() execution fails, spans are sent to the background and may be missing,
 			// but are tolerated and ignored.
 			slog.Error(
-				"Failed to flush spans : %v", err,
+				"Failed to flush spans",
+				slog.String("error", err.Error()),
 			)
 		}
 	}

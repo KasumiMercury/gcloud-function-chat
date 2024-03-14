@@ -55,7 +55,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Create YouTube service
 	ytSvc, err := youtube.NewService(r.Context(), option.WithAPIKey(ytApiKey))
 	if err != nil {
-		slog.Error("Failed to create YouTube service: %v", err)
+		slog.Error("Failed to create YouTube service", slog.String("error", err.Error()))
 		return
 	}
 
@@ -80,7 +80,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	staticChats = filterChatsByPublishedAt(staticChats, threshold)
 	targetChat, _ := separateChatsByAuthor(staticChats, targetChannels)
 
-	slog.Info("staticChats", targetChat)
+	slog.Info("fetched static chats", slog.Int("count", len(targetChat)))
 	slog.Info("chatWatcher")
 }
 
