@@ -30,8 +30,10 @@ func init() {
 }
 
 func chatWatcher(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
 	// Set custom logger
-	logger := NewCustomLogger(r.Context())
+	logger := NewCustomLogger(ctx)
 	slog.SetDefault(logger)
 
 	// Cache common environment variables
@@ -65,7 +67,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	threshold := time.Now().Add(-time.Duration(span) * time.Minute).Unix()
 
 	// Create YouTube service
-	ytSvc, err := youtube.NewService(r.Context(), option.WithAPIKey(ytApiKey))
+	ytSvc, err := youtube.NewService(ctx, option.WithAPIKey(ytApiKey))
 	if err != nil {
 		slog.Error("Failed to create YouTube service", slog.String("error", err.Error()))
 		return
@@ -87,7 +89,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch chats from StaticTarget
-	staticChats, err := fetchChatsByChatID(r.Context(), ytSvc, staticTarget, 0)
+	staticChats, err := fetchChatsByChatID(ctx, ytSvc, staticTarget, 0)
 	if err != nil {
 		slog.Error("Failed to fetch chats from static target: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -103,7 +105,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 
 	// Check publishedAt of the last chat and update threshold if the last chat is newer than the threshold set by span
 	// for preventing the same chat from being inserted multiple times
-	lastRecordedChat, err := getLastPublishedAtOfRecord(r.Context(), dbClient)
+	lastRecordedChat, err := getLastPublishedAtOfRecord(ctx, dbClient)
 	if err != nil {
 		slog.Error("Failed to get last recorded chat: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -121,7 +123,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	chatRecords := convertChatsToRecords(targetChat)
 
 	// Insert the chats to the database
-	if err := InsertChatRecord(r.Context(), dbClient, chatRecords); err != nil {
+	if err := InsertChatRecord(ctx, dbClient, chatRecords); err != nil {
 		slog.Error("Failed to insert chat records: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
