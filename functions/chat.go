@@ -2,6 +2,8 @@ package functions
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/Code-Hex/synchro"
 	"github.com/Code-Hex/synchro/tz"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
@@ -26,7 +28,7 @@ func init() {
 }
 
 func chatWatcher(w http.ResponseWriter, r *http.Request) {
-	// Cache environment variables
+	// Cache common environment variables
 	// Because the function is supposed to run on CloudFunctions, it is necessary to read the environment variables here.
 	ytApiKey := os.Getenv("YOUTUBE_API_KEY")
 	if ytApiKey == "" {
@@ -44,6 +46,24 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to create YouTube service: %v", err)
 		return
 	}
+
+	// load info of video from environment variables
+	staticEnv := os.Getenv("STATIC_TARGET")
+	var staticTarget VideoInfo
+	if err := json.Unmarshal([]byte(staticEnv), &staticTarget); err != nil {
+		slog.Error("Failed to unmarshal static target: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		panic(fmt.Sprintf("Failed to unmarshal static target: %v", err))
+	}
+
+	// Fetch chats from StaticTarget
+	staticChats, err := fetchChatsByChatID(r.Context(), ytSvc, staticTarget, 0)
+	if err != nil {
+		slog.Error("Failed to fetch chats from static target: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	slog.Info("staticChats", staticChats)
 	slog.Info("chatWatcher")
 }
 
