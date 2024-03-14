@@ -30,6 +30,10 @@ func init() {
 }
 
 func chatWatcher(w http.ResponseWriter, r *http.Request) {
+	// Set custom logger
+	logger := NewCustomLogger(r.Context())
+	slog.SetDefault(logger)
+
 	// Cache common environment variables
 	// Because the function is supposed to run on CloudFunctions, it is necessary to read the environment variables here.
 	ytApiKey := os.Getenv("YOUTUBE_API_KEY")
