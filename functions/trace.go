@@ -50,7 +50,7 @@ func InitTracing() (*trace.TracerProvider, error) {
 		group := slog.Group("InitTracing")
 		slog.Error(
 			"Failed to create OTLP trace exporter",
-			slog.String("error", err.Error()),
+			"error", err,
 			group,
 		)
 
@@ -70,7 +70,7 @@ func InitTracing() (*trace.TracerProvider, error) {
 		group := slog.Group("InitTracing")
 		slog.Error(
 			"Failed to create resource",
-			slog.String("error", err.Error()),
+			"error", err,
 			group,
 		)
 

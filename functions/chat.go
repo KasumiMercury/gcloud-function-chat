@@ -20,7 +20,10 @@ func init() {
 	tp, err := InitTracing()
 	if err != nil {
 		group := slog.Group("init", slog.Group("InitTracing"))
-		slog.Error("Failed to initialize tracing: %v", err, group)
+		slog.Error("Failed to initialize tracing",
+			"error", err,
+			group,
+		)
 
 		// If tracing fails to initialize, the program should exit.
 		panic(err)
@@ -69,13 +72,17 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Create YouTube service
 	ytSvc, err := youtube.NewService(ctx, option.WithAPIKey(ytApiKey))
 	if err != nil {
-		slog.Error("Failed to create YouTube service", slog.String("error", err.Error()))
+		slog.Error("Failed to create YouTube service",
+			"error", err,
+		)
 		return
 	}
 	// Create Database Client
 	dbClient, err := NewDBClient(dsn)
 	if err != nil {
-		slog.Error("Failed to create Database client", slog.String("error", err.Error()))
+		slog.Error("Failed to create Database client",
+			"error", err,
+		)
 		return
 	}
 
@@ -83,7 +90,9 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	staticEnv := os.Getenv("STATIC_TARGET")
 	var staticTarget VideoInfo
 	if err := json.Unmarshal([]byte(staticEnv), &staticTarget); err != nil {
-		slog.Error("Failed to unmarshal static target: %v", err)
+		slog.Error("Failed to unmarshal static target",
+			"error", err,
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		panic(fmt.Sprintf("Failed to unmarshal static target: %v", err))
 	}
@@ -91,7 +100,9 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Fetch chats from StaticTarget
 	staticChats, err := fetchChatsByChatID(ctx, ytSvc, staticTarget, 0)
 	if err != nil {
-		slog.Error("Failed to fetch chats from static target: %v", err)
+		slog.Error("Failed to fetch chats from static target",
+			"error", err,
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -107,7 +118,9 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// for preventing the same chat from being inserted multiple times
 	lastRecordedChat, err := getLastPublishedAtOfRecord(ctx, dbClient)
 	if err != nil {
-		slog.Error("Failed to get last recorded chat: %v", err)
+		slog.Error("Failed to get last recorded chat",
+			"error", err,
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -124,7 +137,9 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 
 	// Insert the chats to the database
 	if err := InsertChatRecord(ctx, dbClient, chatRecords); err != nil {
-		slog.Error("Failed to insert chat records: %v", err)
+		slog.Error("Failed to insert chat records",
+			"error", err,
+		)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
