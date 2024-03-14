@@ -19,10 +19,8 @@ import (
 func init() {
 	tp, err := InitTracing()
 	if err != nil {
-		group := slog.Group("init", slog.Group("InitTracing"))
 		slog.Error("Failed to initialize tracing",
-			"error", err,
-			group,
+			slog.Group("tracing", slog.Group("InitTracing", "error", err)),
 		)
 
 		// If tracing fails to initialize, the program should exit.
