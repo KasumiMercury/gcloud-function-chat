@@ -14,22 +14,22 @@ func NewDBClient(dsn string) (*bun.DB, error) {
 	return db, nil
 }
 
-func getLastPublishedAtOfRecord(ctx context.Context, db *bun.DB) (*int64, error) {
+func getLastPublishedAtOfRecord(ctx context.Context, db *bun.DB) (int64, error) {
 	// Get the last recorded chat
 	record := new(ChatRecord)
 	err := db.NewSelect().Model(record).Order("published_at DESC").Limit(1).Column("published_at").Scan(ctx)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
 	if record == nil {
-		return nil, nil
+		return 0, nil
 	}
 
 	// Get the last published_at
 	lastPublishedAt := record.PublishedAt.Unix()
 
-	return &lastPublishedAt, nil
+	return lastPublishedAt, nil
 }
 
 func InsertChatRecord(ctx context.Context, db *bun.DB, record []ChatRecord) error {

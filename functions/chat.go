@@ -105,8 +105,8 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	if lastRecordedChat != nil && *lastRecordedChat > threshold {
-		threshold = *lastRecordedChat
+	if lastRecordedChat != 0 && lastRecordedChat > threshold {
+		threshold = lastRecordedChat
 	}
 
 	// Filter chats by publishedAt
