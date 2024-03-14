@@ -13,6 +13,7 @@ import (
 
 func main() {
 	// If environment file exists, load it
+	// this is for local development
 	if _, err := os.Stat(".env"); err == nil {
 		if err := godotenv.Load(); err != nil {
 			log.Fatalf("godotenv.Load: %v\n", err)
