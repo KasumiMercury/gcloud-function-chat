@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -37,6 +38,14 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		panic("YOUTUBE_API_KEY is not set")
 	}
+	targetChannelIdStr := os.Getenv("TARGET_CHANNEL_ID")
+	if targetChannelIdStr == "" {
+		slog.Error("TARGET_CHANNEL_ID is not set")
+		w.WriteHeader(http.StatusInternalServerError)
+		panic("TARGET_CHANNEL_ID is not set")
+	}
+	// Split targetChannelIdStr by comma
+	targetChannels := strings.Split(targetChannelIdStr, ",")
 
 	// Initialize span
 	span := getSpanQuery(r.URL)
