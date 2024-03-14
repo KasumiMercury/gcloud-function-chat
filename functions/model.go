@@ -8,7 +8,7 @@ type Chat struct {
 }
 
 type VideoInfo struct {
-	SourceID string
-	Status   string
-	ChatID   string
+	SourceID string `json:"sourceId"`
+	Status   string `json:"status"`
+	ChatID   string `json:"chatId"`
 }
