@@ -23,7 +23,7 @@ func InitTracing() (*trace.TracerProvider, error) {
 		if err := godotenv.Load(); err != nil {
 			slog.Error(
 				"Failed to load .env file",
-				slog.Group("tracing", slog.Group("InitTracing", "error", err)),
+				slog.Group("tracing", slog.Group("initTracing", "error", err)),
 			)
 		}
 	}
@@ -51,7 +51,7 @@ func InitTracing() (*trace.TracerProvider, error) {
 	if err != nil {
 		slog.Error(
 			"Failed to create OTLP trace exporter",
-			slog.Group("tracing", slog.Group("InitTracing", "error", err)),
+			slog.Group("tracing", slog.Group("initTracing", "error", err)),
 		)
 
 		return nil, err
@@ -69,7 +69,7 @@ func InitTracing() (*trace.TracerProvider, error) {
 	if err != nil {
 		slog.Error(
 			"Failed to create resource",
-			slog.Group("tracing", slog.Group("InitTracing", "error", err)),
+			slog.Group("tracing", slog.Group("initTracing", "error", err)),
 		)
 
 		return nil, err
