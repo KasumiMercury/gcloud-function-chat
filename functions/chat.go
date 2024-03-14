@@ -41,24 +41,23 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 
 	// Cache common environment variables
 	// Because the function is supposed to run on CloudFunctions, it is necessary to read the environment variables here.
+	// If the environment variable is not set, the function will panic.
+	// (To prevent retries by CloudScheduler, the function should panic without returning error responses.)
 	ytApiKey := os.Getenv("YOUTUBE_API_KEY")
 	if ytApiKey == "" {
 		slog.Error("YOUTUBE_API_KEY is not set")
-		w.WriteHeader(http.StatusInternalServerError)
 		panic("YOUTUBE_API_KEY is not set")
 	}
 
 	dsn := os.Getenv("DSN")
 	if dsn == "" {
 		slog.Error("DSN is not set")
-		w.WriteHeader(http.StatusInternalServerError)
 		panic("DSN is not set")
 	}
 	targetChannelIdStr := os.Getenv("TARGET_CHANNEL_ID")
 
 	if targetChannelIdStr == "" {
 		slog.Error("TARGET_CHANNEL_ID is not set")
-		w.WriteHeader(http.StatusInternalServerError)
 		panic("TARGET_CHANNEL_ID is not set")
 	}
 	// Split targetChannelIdStr by comma
@@ -74,6 +73,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("Failed to create YouTube service",
 			"error", err,
+			slog.Group("YouTubeAPI"),
 		)
 		return
 	}
@@ -93,7 +93,6 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("Failed to unmarshal static target",
 			"error", err,
 		)
-		w.WriteHeader(http.StatusInternalServerError)
 		panic(fmt.Sprintf("Failed to unmarshal static target: %v", err))
 	}
 
@@ -102,6 +101,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("Failed to fetch chats from static target",
 			"error", err,
+			slog.Group("chatID", staticTarget.ChatID, slog.Group("YouTubeAPI")),
 		)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -160,6 +160,11 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 
 	resp, err := call.Do()
 	if err != nil {
+		slog.Error(
+			"Failed to run LiveChatMessages.List",
+			"error", err,
+			slog.Group("chatID", video.ChatID, slog.Group("YouTubeAPI")),
+		)
 		return nil, err
 	}
 
@@ -167,6 +172,10 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 	for _, item := range resp.Items {
 		pa, err := synchro.ParseISO[tz.AsiaTokyo](item.Snippet.PublishedAt)
 		if err != nil {
+			slog.Error("Failed to parse publishedAt",
+				"error", err,
+				slog.Group("chatID", video.ChatID, slog.Group("formatting")),
+			)
 			return nil, err
 		}
 		result = append(result, Chat{
