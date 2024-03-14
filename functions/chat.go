@@ -94,7 +94,16 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	staticChats = filterChatsByPublishedAt(staticChats, threshold)
 	targetChat, _ := separateChatsByAuthor(staticChats, targetChannels)
 
-	slog.Info("fetched static chats", slog.Int("count", len(targetChat)))
+	// Convert the chats to the chat records
+	chatRecords := convertChatsToRecords(targetChat)
+
+	// Insert the chats to the database
+	if err := InsertChatRecord(r.Context(), dbClient, chatRecords); err != nil {
+		slog.Error("Failed to insert chat records: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	slog.Info("chatWatcher")
 }
 
