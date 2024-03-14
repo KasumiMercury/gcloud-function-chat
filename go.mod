@@ -6,6 +6,9 @@ require (
 	github.com/Code-Hex/synchro v0.5.2
 	github.com/GoogleCloudPlatform/functions-framework-go v1.8.1
 	github.com/joho/godotenv v1.5.1
+	github.com/uptrace/bun v1.1.17
+	github.com/uptrace/bun/dialect/pgdialect v1.1.17
+	github.com/uptrace/bun/driver/pgdriver v1.1.17
 	go.opentelemetry.io/contrib/detectors/gcp v1.24.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0
 	go.opentelemetry.io/otel v1.24.0
@@ -39,9 +42,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
-	github.com/uptrace/bun v1.1.17 // indirect
-	github.com/uptrace/bun/dialect/pgdialect v1.1.17 // indirect
-	github.com/uptrace/bun/driver/pgdriver v1.1.17 // indirect
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
