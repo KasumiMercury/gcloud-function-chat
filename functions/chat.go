@@ -38,7 +38,15 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		panic("YOUTUBE_API_KEY is not set")
 	}
+
+	dsn := os.Getenv("DSN")
+	if dsn == "" {
+		slog.Error("DSN is not set")
+		w.WriteHeader(http.StatusInternalServerError)
+		panic("DSN is not set")
+	}
 	targetChannelIdStr := os.Getenv("TARGET_CHANNEL_ID")
+
 	if targetChannelIdStr == "" {
 		slog.Error("TARGET_CHANNEL_ID is not set")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -56,6 +64,12 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	ytSvc, err := youtube.NewService(r.Context(), option.WithAPIKey(ytApiKey))
 	if err != nil {
 		slog.Error("Failed to create YouTube service", slog.String("error", err.Error()))
+		return
+	}
+	// Create Database Client
+	dbClient, err := NewDBClient(dsn)
+	if err != nil {
+		slog.Error("Failed to create Database client", slog.String("error", err.Error()))
 		return
 	}
 
@@ -76,11 +90,40 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If the length of the staticChats is 0, return
+	if len(staticChats) == 0 {
+		slog.Info("No chats found")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Check publishedAt of the last chat and update threshold if the last chat is newer than the threshold set by span
+	// for preventing the same chat from being inserted multiple times
+	lastRecordedChat, err := getLastPublishedAtOfRecord(r.Context(), dbClient)
+	if err != nil {
+		slog.Error("Failed to get last recorded chat: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	if lastRecordedChat != 0 && lastRecordedChat > threshold {
+		threshold = lastRecordedChat
+	}
+
 	// Filter chats by publishedAt
 	staticChats = filterChatsByPublishedAt(staticChats, threshold)
 	targetChat, _ := separateChatsByAuthor(staticChats, targetChannels)
 
-	slog.Info("fetched static chats", slog.Int("count", len(targetChat)))
+	// Convert the chats to the chat records
+	chatRecords := convertChatsToRecords(targetChat)
+
+	// Insert the chats to the database
+	if err := InsertChatRecord(r.Context(), dbClient, chatRecords); err != nil {
+		slog.Error("Failed to insert chat records: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 	slog.Info("chatWatcher")
 }
 
@@ -108,7 +151,7 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 		result = append(result, Chat{
 			AuthorChannelID: item.Snippet.AuthorChannelId,
 			Message:         item.Snippet.DisplayMessage,
-			PublishedAt:     pa.Unix(),
+			PublishedAtUnix: pa.Unix(),
 			SourceID:        video.SourceID,
 		})
 	}

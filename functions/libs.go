@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"slices"
 	"strconv"
+	"time"
 )
 
 func getSpanQuery(u *url.URL) int {
@@ -44,7 +45,7 @@ func filterChatsByPublishedAt(chats []Chat, threshold int64) []Chat {
 
 	for i, chat := range chats {
 		// If the chat's publishedAt is greater than the threshold, append the chat to the result
-		if chat.PublishedAt > threshold {
+		if chat.PublishedAtUnix > threshold {
 			filteredChats = chats[i:]
 			break
 		}
@@ -72,4 +73,23 @@ func separateChatsByAuthor(chats []Chat, target []string) ([]Chat, []Chat) {
 
 	// Return the result
 	return targetChats, otherChats
+}
+
+func convertChatsToRecords(chats []Chat) []ChatRecord {
+	// Convert the chats to the chat records
+	// The chat records are the struct for the database
+
+	var chatRecords []ChatRecord
+
+	for _, chat := range chats {
+		// Convert the chat to the chat record
+		chatRecords = append(chatRecords, ChatRecord{
+			Message:     chat.Message,
+			SourceID:    chat.SourceID,
+			PublishedAt: time.Unix(chat.PublishedAtUnix, 0),
+		})
+	}
+
+	// Return the result
+	return chatRecords
 }
