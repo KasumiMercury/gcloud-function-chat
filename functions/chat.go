@@ -117,6 +117,17 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// If there is a live video, process only that video and skip processing of other videos.
+	// Because the chat of the target of acquisition is focused on the live video,
+	// and chatting to other videos during the live is not necessary for the use case.
+	if len(liveVideos) > 0 {
+		// TODO: Implement the process for live videos
+
+		// Other videos are skipped
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// load info of video from environment variables
 	staticEnv := os.Getenv("STATIC_TARGET")
 	var staticTarget VideoInfo
