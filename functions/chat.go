@@ -312,9 +312,9 @@ func findPriorityTarget(ctx context.Context, db *bun.DB, videos []VideoInfo) (Vi
 
 	// Priority is given to retrieving the last saved data with the oldest PublishedAt.
 	// The data with the smallest value in map is the priority target
-	vals := make([]int64, len(videos))
-	for i, video := range videos {
-		vals[i] = rec[video.SourceID]
+	vals := make([]int64, 0, len(rec))
+	for _, published := range rec {
+		vals = append(vals, published)
 	}
 	// Find the smallest value
 	sort.Slice(vals, func(i, j int) bool { return vals[i] < vals[j] })
