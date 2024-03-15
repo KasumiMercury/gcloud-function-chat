@@ -1,6 +1,7 @@
 package functions
 
 import (
+	language "cloud.google.com/go/language/apiv2"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,11 +9,13 @@ import (
 	"github.com/Code-Hex/synchro/tz"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/uptrace/bun"
+	"golang.org/x/text/unicode/norm"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 	"log/slog"
 	"net/http"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -194,6 +197,20 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Convert the chats to the chat records
 	chatRecords := convertChatsToRecords(allChats)
 
+	// Create Natural Language API client for sentiment analysis
+	nlClient, err := NewAnalysisClient(ctx)
+	if err != nil {
+		slog.Error("Failed to create Natural Language API client",
+			slog.Group("saveChat", slog.Group("NaturalLanguageAPI", "error", err)),
+		)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Validate the negativity sentiment of the chats
+	// Negative flags are used in other linked services
+	chatRecords, err = validateNegativitySentiment(ctx, nlClient, chatRecords)
+
 	// Insert the chats to the database
 	if err := InsertChatRecord(ctx, dbClient, chatRecords); err != nil {
 		slog.Error("Failed to insert chat records",
@@ -345,4 +362,51 @@ func findPriorityTarget(ctx context.Context, db *bun.DB, videos []VideoInfo) (Vi
 	}
 
 	return target, latestPublished, nil
+}
+
+func validateNegativitySentiment(ctx context.Context, nlClient *language.Client, chats []ChatRecord) ([]ChatRecord, error) {
+	// Validate the negativity sentiment of the chats
+	// The chats are validated by the sentiment analysis of the Natural Language API
+	// If the sentiment is negative, the chat is appended to the result
+	var result []ChatRecord
+
+	// Compile the pattern for the stamp for removing the stamp from the message
+	// Stamps are not necessary for the sentiment analysis
+	// Stamp pattern is like : xxx :
+	stmpPattern := regexp.MustCompile(`:[^:]+:`)
+
+	for _, chat := range chats {
+		msg := chat.Message
+		// Remove the stamp from the message
+		msg = stmpPattern.ReplaceAllString(msg, "")
+		// Normalize the message
+		msg = norm.NFKC.String(msg)
+		// Remove emojis from the message
+		// Because the emojis are not necessary for the sentiment analysis and occasionally cause an error
+		msg = RemoveEmoji(msg)
+
+		if len(msg) == 0 {
+			chat.IsNegative = false
+			result = append(result, chat)
+			continue
+		}
+
+		// Analyze the sentiment of the message
+		score, magnitude, err := AnalyzeSentiment(ctx, nlClient, msg)
+		if err != nil {
+			return nil, err
+		}
+
+		// If score is less than -1 * magnitude, treat the message as negative
+		// when score is another case, treat the message as non-negative
+		if score < -1*magnitude {
+			chat.IsNegative = true
+			result = append(result, chat)
+		}
+
+		chat.IsNegative = false
+		result = append(result, chat)
+	}
+
+	return result, nil
 }
