@@ -17,7 +17,7 @@ func NewDBClient(dsn string) (*bun.DB, error) {
 
 func getVideoRecordByStatus(ctx context.Context, db *bun.DB, status []string) ([]VideoRecord, error) {
 	records := make([]VideoRecord, 0)
-	err := db.NewSelect().Model(&records).Where("status IN (?)", status).Column("source_id", "status", "chat_id").Scan(ctx)
+	err := db.NewSelect().Model(&records).Where("status IN (?)", bun.In(status)).Column("source_id", "status", "chat_id").Scan(ctx)
 	if err != nil {
 		return nil, err
 	}
