@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -152,6 +153,26 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	}
 	allChats = append(allChats, staticChats...)
 
+	// If upcoming videos are more than 1, find the priority target
+	// to reduce the number of API requests and prevent overuse of quota of YouTube API
+	upcomingTarget, lastPublished, err := findPriorityTarget(ctx, dbClient, upcomingVideos)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Fetch chats from upcoming videos
+	upcomingChats, err := fetchChatsByChatID(ctx, ytSvc, upcomingTarget, 0)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Filter the chats by the threshold
+	upcomingChats = filterChatsByPublishedAt(upcomingChats, lastPublished)
+	// Filter the chats by the target channels
+	upcomingChats, _ = separateChatsByAuthor(upcomingChats, targetChannels)
+	// Append the chats to the allChats
+	allChats = append(allChats, upcomingChats...)
+
 	// If the length of the staticChats is 0, return
 	if len(allChats) == 0 {
 		slog.Info("No chats found")
@@ -244,4 +265,65 @@ func fetchStaticTarget(ctx context.Context, db *bun.DB, ytSvc *youtube.Service, 
 	targetChats, _ := separateChatsByAuthor(chats, target)
 
 	return targetChats, nil
+}
+
+func findPriorityTarget(ctx context.Context, db *bun.DB, videos []VideoInfo) (VideoInfo, int64, error) {
+	// Get the last publishedAt of the record in each upcoming video
+	ids := make([]string, len(videos))
+	for i, video := range videos {
+		ids[i] = video.SourceID
+	}
+
+	rec, err := getLastPublishedAtOfRecordEachSource(ctx, db, ids)
+	if err != nil {
+		slog.Error("Failed to get last publishedAt of record",
+			slog.Group("fetchChat", "sourceId", ids, slog.Group("database", "error", err)),
+		)
+		return VideoInfo{}, 0, err
+	}
+
+	switch {
+	case len(rec) == 0:
+		return videos[0], 0, nil
+	case len(videos) == 1:
+		return videos[0], rec[videos[0].SourceID], nil
+	case len(videos) != len(rec):
+		for _, video := range videos {
+			if _, ok := rec[video.SourceID]; !ok {
+				return video, 0, nil
+			}
+		}
+	}
+
+	var target VideoInfo
+	var targetSourceID string
+	var latestPublished int64
+
+	// Priority is given to retrieving the last saved data with the oldest PublishedAt.
+	// The data with the smallest value in map is the priority target
+	vals := make([]int64, len(videos))
+	for i, video := range videos {
+		vals[i] = rec[video.SourceID]
+	}
+	// Find the smallest value
+	sort.Slice(vals, func(i, j int) bool { return vals[i] < vals[j] })
+	latestPublished = vals[0]
+
+	// Find the sourceID with the smallest value in the map
+	for sourceID, published := range rec {
+		if published == latestPublished {
+			targetSourceID = sourceID
+			break
+		}
+	}
+
+	// Find the target video info
+	for _, video := range videos {
+		if video.SourceID == targetSourceID {
+			target = video
+			break
+		}
+	}
+
+	return target, latestPublished, nil
 }
