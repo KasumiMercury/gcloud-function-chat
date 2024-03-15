@@ -138,6 +138,9 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Sprintf("Failed to unmarshal static target: %v", err))
 	}
 
+	// Combine the upcoming videos and the static target as fetching targets
+	targetVideos := append(upcomingVideos, staticTarget)
+
 	// Fetch chats from StaticTarget
 	staticChats, err := fetchChatsByChatID(ctx, ytSvc, staticTarget, 0)
 	if err != nil {
