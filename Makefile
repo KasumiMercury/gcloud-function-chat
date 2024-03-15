@@ -33,7 +33,7 @@ endif
 		--region=asia-northeast1 \
 		--source . \
 		--entry-point=$(ENTRY_POINT) \
-		--trigger-http
+		--trigger-http \
 		--set-env-vars=GOOGLE_CLOUD_PROJECT=$(GOOGLE_CLOUD_PROJECT),SERVICE_NAME=$(SERVICE_NAME),YOUTUBE_API_KEY=$(YOUTUBE_API_KEY),DSN=$(DSN),TARGET_CHANNEL_ID=$(TARGET_CHANNEL_ID),STATIC_TARGET=$(STATIC_TARGET)
 define deploy-usage
 	@echo "Not enough parameters"
