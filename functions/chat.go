@@ -127,11 +127,23 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Because the chat of the target of acquisition is focused on the live video,
 	// and chatting to other videos during the live is not necessary for the use case.
 	if len(liveVideos) > 0 {
+		if len(liveVideos) > 1 {
+			ids := make([]string, len(liveVideos))
+			for i, video := range liveVideos {
+				ids[i] = video.SourceID
+			}
+			slog.Error("Multiple live videos found",
+				slog.Group("liveVideo", "sourceId", ids, "error", "multiple live videos"),
+			)
+		}
 		slog.Info(
 			"Live video found",
 			slog.Group("liveVideo", "chatId", liveVideos[0].ChatID),
 		)
-		// TODO: Implement the process for live videos
+		if err := liveChatWatcher(ctx, ytSvc, dbClient, liveVideos[0], threshold, targetChannels); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		// Other videos are skipped
 		w.WriteHeader(http.StatusOK)
