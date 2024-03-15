@@ -7,11 +7,13 @@ import (
 	"github.com/Code-Hex/synchro"
 	"github.com/Code-Hex/synchro/tz"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	"github.com/uptrace/bun"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 	"log/slog"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -141,43 +143,38 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		)
 		panic(fmt.Sprintf("Failed to unmarshal static target: %v", err))
 	}
+	var allChats []Chat
 
-	// Combine the upcoming videos and the static target as fetching targets
-	targetVideos := append(upcomingVideos, staticTarget)
-
-	// Check publishedAt of the last chat and update threshold if the last chat is newer than the threshold set by span
-	// for preventing the same chat from being inserted multiple times
-	lastRecordedChat, err := getLastPublishedAtOfRecord(ctx, dbClient)
+	// Fetch chats from static target video
+	staticChats, err := fetchStaticTarget(ctx, dbClient, ytSvc, staticTarget, threshold, targetChannels)
 	if err != nil {
-		slog.Error("Failed to get last recorded chat",
-			slog.Group("saveChat", slog.Group("database", "error", err)),
-		)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if lastRecordedChat != 0 && lastRecordedChat > threshold {
-		threshold = lastRecordedChat
+	allChats = append(allChats, staticChats...)
+
+	// If upcoming videos are more than 1, find the priority target
+	// to reduce the number of API requests and prevent overuse of quota of YouTube API
+	upcomingTarget, lastPublished, err := findPriorityTarget(ctx, dbClient, upcomingVideos)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-
-	// Fetch chats from YouTube API
-	var allChats []Chat
-	for _, video := range targetVideos {
-		chats, err := fetchChatsByChatID(ctx, ytSvc, video, 0)
-		if err != nil {
-			slog.Error("Failed to fetch chats from YouTube API",
-				slog.Group("fetchChat", "chatId", video.ChatID, "error", err),
-			)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Filter chats by publishedAt
-		chats = filterChatsByPublishedAt(chats, threshold)
-		// Filter chats by author
-		chats, _ = separateChatsByAuthor(chats, targetChannels)
-
-		allChats = append(allChats, chats...)
+	// Fetch chats from upcoming videos
+	upcomingChats, err := fetchChatsByChatID(ctx, ytSvc, upcomingTarget, 0)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	// Filter the chats by the threshold if the lastPublished is not 0
+	// If the lastPublished is 0, the chats are not filtered and all chats are appended to the allChats
+	if lastPublished != 0 {
+		upcomingChats = filterChatsByPublishedAt(upcomingChats, lastPublished)
+	}
+	// Filter the chats by the target channels
+	upcomingChats, _ = separateChatsByAuthor(upcomingChats, targetChannels)
+	// Append the chats to the allChats
+	allChats = append(allChats, upcomingChats...)
 
 	// If the length of the staticChats is 0, return
 	if len(allChats) == 0 {
@@ -239,4 +236,105 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 	}
 
 	return result, nil
+}
+
+func fetchStaticTarget(ctx context.Context, db *bun.DB, ytSvc *youtube.Service, video VideoInfo, threshold int64, target []string) ([]Chat, error) {
+	// Get the last publishedAt of the record
+	pldRec, err := getLastPublishedAtOfRecordEachSource(ctx, db, []string{video.SourceID})
+	if err != nil {
+		slog.Error("Failed to get last publishedAt of record",
+			slog.Group("fetchChat", "sourceId", video.SourceID, slog.Group("database", "error", err)),
+		)
+		return nil, err
+	}
+	lastPublished := pldRec[video.SourceID]
+	// If the last published is greater than the threshold, set the threshold to the last published
+	if lastPublished > threshold {
+		threshold = lastPublished
+	}
+
+	// Fetch chats by YouTube API
+	chats, err := fetchChatsByChatID(ctx, ytSvc, video, 0)
+	if err != nil {
+		slog.Error("Failed to fetch chats from YouTube API",
+			slog.Group("fetchChat", "chatId", video.ChatID, "error", err),
+		)
+		return nil, err
+	}
+
+	// Filter the chats by the threshold
+	chats = filterChatsByPublishedAt(chats, threshold)
+	// Separate the chats by the author channel ID
+	targetChats, _ := separateChatsByAuthor(chats, target)
+
+	return targetChats, nil
+}
+
+func findPriorityTarget(ctx context.Context, db *bun.DB, videos []VideoInfo) (VideoInfo, int64, error) {
+	// Get the last publishedAt of the record in each upcoming video
+	if len(videos) == 0 {
+		slog.Error(
+			"Failed to find priority target",
+			slog.Group("fetchChat", "error", "no videos"),
+		)
+		return VideoInfo{}, 0, fmt.Errorf("no videos")
+	}
+
+	ids := make([]string, len(videos))
+	for i, video := range videos {
+		ids[i] = video.SourceID
+	}
+
+	rec, err := getLastPublishedAtOfRecordEachSource(ctx, db, ids)
+	if err != nil {
+		slog.Error("Failed to get last publishedAt of record",
+			slog.Group("fetchChat", "sourceId", ids, slog.Group("database", "error", err)),
+		)
+		return VideoInfo{}, 0, err
+	}
+
+	switch {
+	case len(rec) == 0:
+		return videos[0], 0, nil
+	case len(videos) == 1:
+		return videos[0], rec[videos[0].SourceID], nil
+	case len(videos) != len(rec):
+		for _, video := range videos {
+			if _, ok := rec[video.SourceID]; !ok {
+				return video, 0, nil
+			}
+		}
+	}
+
+	var target VideoInfo
+	var targetSourceID string
+	var latestPublished int64
+
+	// Priority is given to retrieving the last saved data with the oldest PublishedAt.
+	// The data with the smallest value in map is the priority target
+	vals := make([]int64, 0, len(rec))
+	for _, published := range rec {
+		vals = append(vals, published)
+	}
+	// Find the smallest value
+	sort.Slice(vals, func(i, j int) bool { return vals[i] < vals[j] })
+	latestPublished = vals[0]
+
+	// Find the sourceID with the smallest value in the map
+	for sourceID, published := range rec {
+		if published == latestPublished {
+			targetSourceID = sourceID
+			break
+		}
+	}
+
+	// Find the target video info
+	for _, video := range videos {
+		if video.SourceID == targetSourceID {
+			target = video
+			break
+		}
+	}
+
+	return target, latestPublished, nil
 }

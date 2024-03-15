@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
@@ -25,22 +26,28 @@ func getVideoRecordByStatus(ctx context.Context, db *bun.DB, status []string) ([
 
 }
 
-func getLastPublishedAtOfRecord(ctx context.Context, db *bun.DB) (int64, error) {
+func getLastPublishedAtOfRecordEachSource(ctx context.Context, db *bun.DB, source []string) (map[string]int64, error) {
+	if len(source) == 0 {
+		return nil, fmt.Errorf("source is empty")
+	}
 	// Get the last recorded chat
-	record := new(ChatRecord)
-	err := db.NewSelect().Model(record).Order("published_at DESC").Limit(1).Column("published_at").Scan(ctx)
+	records := make([]ChatRecord, 0)
+	err := db.NewSelect().
+		Model(&records).
+		ColumnExpr("source_id, MAX(published_at) as published_at").
+		Where("source_id IN (?)", source).
+		Group("source_id").
+		Scan(ctx)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	if record == nil {
-		return 0, nil
+	result := make(map[string]int64)
+	for _, record := range records {
+		result[record.SourceID] = record.PublishedAt.Unix()
 	}
 
-	// Get the last published_at
-	lastPublishedAt := record.PublishedAt.Unix()
-
-	return lastPublishedAt, nil
+	return result, nil
 }
 
 func InsertChatRecord(ctx context.Context, db *bun.DB, record []ChatRecord) error {
