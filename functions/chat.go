@@ -250,6 +250,34 @@ func liveChatWatcher(ctx context.Context, ytSvc *youtube.Service, dbClient *bun.
 		}
 	}
 
+	// Chats from non-targets are analyzed independently by an external service
+	// Skip if the URL of the external service is not set in the environment variable
+	serviceUrl := os.Getenv("EXTERNAL_SERVICE_URL")
+	if serviceUrl == "" {
+		slog.Info("No external service URL set")
+		return nil
+	}
+
+	// Send the chats to the external service
+	httpClient := &http.Client{}
+	req, err := http.NewRequest("POST", serviceUrl, strings.NewReader("chats"))
+	if err != nil {
+		slog.Error("Failed to create request",
+			slog.Group("externalService", "error", err),
+		)
+		return err
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func(resp *http.Response) {
+		err := resp.Body.Close()
+		if err != nil {
+			slog.Error("failed to close response body", "error", err)
+		}
+	}(resp)
+
 	return nil
 }
 
