@@ -272,6 +272,14 @@ func fetchStaticTarget(ctx context.Context, db *bun.DB, ytSvc *youtube.Service, 
 
 func findPriorityTarget(ctx context.Context, db *bun.DB, videos []VideoInfo) (VideoInfo, int64, error) {
 	// Get the last publishedAt of the record in each upcoming video
+	if len(videos) == 0 {
+		slog.Error(
+			"Failed to find priority target",
+			slog.Group("fetchChat", "error", "no videos"),
+		)
+		return VideoInfo{}, 0, fmt.Errorf("no videos")
+	}
+
 	ids := make([]string, len(videos))
 	for i, video := range videos {
 		ids[i] = video.SourceID
