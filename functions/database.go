@@ -43,6 +43,27 @@ func getLastPublishedAtOfRecord(ctx context.Context, db *bun.DB) (int64, error) 
 	return lastPublishedAt, nil
 }
 
+func getLastPublishedAtOfRecordEachSource(ctx context.Context, db *bun.DB, source []string) (map[string]int64, error) {
+	// Get the last recorded chat
+	records := make([]ChatRecord, 0)
+	err := db.NewSelect().
+		Model(&records).
+		ColumnExpr("source_id", "MAX(published_at) as published_at").
+		Where("source_id IN (?)", source).
+		Group("source_id").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]int64)
+	for _, record := range records {
+		result[record.SourceID] = record.PublishedAt.Unix()
+	}
+
+	return result, nil
+}
+
 func InsertChatRecord(ctx context.Context, db *bun.DB, record []ChatRecord) error {
 	_, err := db.NewInsert().Model(&record).Exec(ctx)
 	if err != nil {
