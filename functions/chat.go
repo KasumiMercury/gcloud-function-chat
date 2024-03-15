@@ -89,6 +89,17 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get info of videos with the target status
+	targetStatus := []string{"live", "upcoming"}
+	targetVideos, err := getVideoRecordByStatus(ctx, dbClient, targetStatus)
+	if err != nil {
+		slog.Error("Failed to get video records",
+			slog.Group("database", "error", err),
+		)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	// load info of video from environment variables
 	staticEnv := os.Getenv("STATIC_TARGET")
 	var staticTarget VideoInfo

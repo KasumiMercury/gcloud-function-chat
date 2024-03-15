@@ -21,6 +21,15 @@ type ChatRecord struct {
 	PublishedAt time.Time `bun:",type:timestamp"`
 }
 
+type VideoRecord struct {
+	bun.BaseModel `bun:"table:videos"`
+
+	SourceID  string    `bun:",type:varchar(255)"`
+	Status    string    `bun:",type:varchar(255)"`
+	ChatID    string    `bun:",type:varchar(255)"`
+	UpdatedAt time.Time `bun:",type:timestamp"`
+}
+
 type VideoInfo struct {
 	SourceID string `json:"sourceId"`
 	Status   string `json:"status"`
