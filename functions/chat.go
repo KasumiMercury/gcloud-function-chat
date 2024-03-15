@@ -402,6 +402,7 @@ func validateNegativitySentiment(ctx context.Context, nlClient *language.Client,
 		if score < -1*magnitude {
 			chat.IsNegative = true
 			result = append(result, chat)
+			continue
 		}
 
 		chat.IsNegative = false
