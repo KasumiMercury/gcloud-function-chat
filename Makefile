@@ -29,6 +29,7 @@ ifndef STATIC_TARGET
 endif
 # Deploy the function
 	gcloud functions deploy $(SERVICE_NAME) \
+		--no-gen2 \
 		--runtime go121 \
 		--region=asia-northeast1 \
 		--source . \
