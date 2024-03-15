@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/driver/pgdriver"
@@ -26,6 +27,9 @@ func getVideoRecordByStatus(ctx context.Context, db *bun.DB, status []string) ([
 }
 
 func getLastPublishedAtOfRecordEachSource(ctx context.Context, db *bun.DB, source []string) (map[string]int64, error) {
+	if len(source) == 0 {
+		return nil, fmt.Errorf("source is empty")
+	}
 	// Get the last recorded chat
 	records := make([]ChatRecord, 0)
 	err := db.NewSelect().
