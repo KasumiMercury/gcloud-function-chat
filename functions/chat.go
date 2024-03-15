@@ -100,6 +100,23 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Separate processing by status: live or upcoming
+	var liveVideos []VideoInfo
+	var upcomingVideos []VideoInfo
+	for _, video := range targetVideos {
+		if video.Status == "live" {
+			liveVideos = append(liveVideos, VideoInfo{
+				ChatID:   video.ChatID,
+				SourceID: video.SourceID,
+			})
+		} else {
+			upcomingVideos = append(upcomingVideos, VideoInfo{
+				ChatID:   video.ChatID,
+				SourceID: video.SourceID,
+			})
+		}
+	}
+
 	// load info of video from environment variables
 	staticEnv := os.Getenv("STATIC_TARGET")
 	var staticTarget VideoInfo
