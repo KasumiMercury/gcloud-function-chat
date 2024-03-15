@@ -52,8 +52,8 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		slog.Error("DSN is not set")
 		panic("DSN is not set")
 	}
-	targetChannelIdStr := os.Getenv("TARGET_CHANNEL_ID")
 
+	targetChannelIdStr := os.Getenv("TARGET_CHANNEL_ID")
 	if targetChannelIdStr == "" {
 		slog.Error("TARGET_CHANNEL_ID is not set")
 		panic("TARGET_CHANNEL_ID is not set")
