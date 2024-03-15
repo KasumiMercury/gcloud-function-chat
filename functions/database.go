@@ -14,6 +14,17 @@ func NewDBClient(dsn string) (*bun.DB, error) {
 	return db, nil
 }
 
+func getVideoRecordByStatus(ctx context.Context, db *bun.DB, status []string) ([]VideoRecord, error) {
+	records := make([]VideoRecord, 0)
+	err := db.NewSelect().Model(&records).Where("status IN (?)", status).Column("source_id", "status", "chat_id").Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return records, nil
+
+}
+
 func getLastPublishedAtOfRecord(ctx context.Context, db *bun.DB) (int64, error) {
 	// Get the last recorded chat
 	record := new(ChatRecord)

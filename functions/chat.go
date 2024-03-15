@@ -89,6 +89,49 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get info of videos with the target status
+	targetStatus := []string{"live", "upcoming"}
+	videoRecords, err := getVideoRecordByStatus(ctx, dbClient, targetStatus)
+	if err != nil {
+		slog.Error("Failed to get video records",
+			slog.Group("database", "error", err),
+		)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Separate processing by status: live or upcoming
+	var liveVideos []VideoInfo
+	var upcomingVideos []VideoInfo
+	for _, video := range videoRecords {
+		if video.Status == "live" {
+			liveVideos = append(liveVideos, VideoInfo{
+				ChatID:   video.ChatID,
+				SourceID: video.SourceID,
+			})
+		} else {
+			upcomingVideos = append(upcomingVideos, VideoInfo{
+				ChatID:   video.ChatID,
+				SourceID: video.SourceID,
+			})
+		}
+	}
+
+	// If there is a live video, process only that video and skip processing of other videos.
+	// Because the chat of the target of acquisition is focused on the live video,
+	// and chatting to other videos during the live is not necessary for the use case.
+	if len(liveVideos) > 0 {
+		slog.Info(
+			"Live video found",
+			slog.Group("liveVideo", "chatId", liveVideos[0].ChatID),
+		)
+		// TODO: Implement the process for live videos
+
+		// Other videos are skipped
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
 	// load info of video from environment variables
 	staticEnv := os.Getenv("STATIC_TARGET")
 	var staticTarget VideoInfo
@@ -99,22 +142,8 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		panic(fmt.Sprintf("Failed to unmarshal static target: %v", err))
 	}
 
-	// Fetch chats from StaticTarget
-	staticChats, err := fetchChatsByChatID(ctx, ytSvc, staticTarget, 0)
-	if err != nil {
-		slog.Error("Failed to fetch chats from static target",
-			slog.Group("fetchChat", "chatId", staticTarget.ChatID, "error", err),
-		)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// If the length of the staticChats is 0, return
-	if len(staticChats) == 0 {
-		slog.Info("No chats found")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
+	// Combine the upcoming videos and the static target as fetching targets
+	targetVideos := append(upcomingVideos, staticTarget)
 
 	// Check publishedAt of the last chat and update threshold if the last chat is newer than the threshold set by span
 	// for preventing the same chat from being inserted multiple times
@@ -130,12 +159,35 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		threshold = lastRecordedChat
 	}
 
-	// Filter chats by publishedAt
-	staticChats = filterChatsByPublishedAt(staticChats, threshold)
-	targetChat, _ := separateChatsByAuthor(staticChats, targetChannels)
+	// Fetch chats from YouTube API
+	var allChats []Chat
+	for _, video := range targetVideos {
+		chats, err := fetchChatsByChatID(ctx, ytSvc, video, 0)
+		if err != nil {
+			slog.Error("Failed to fetch chats from YouTube API",
+				slog.Group("fetchChat", "chatId", video.ChatID, "error", err),
+			)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Filter chats by publishedAt
+		chats = filterChatsByPublishedAt(chats, threshold)
+		// Filter chats by author
+		chats, _ = separateChatsByAuthor(chats, targetChannels)
+
+		allChats = append(allChats, chats...)
+	}
+
+	// If the length of the staticChats is 0, return
+	if len(allChats) == 0 {
+		slog.Info("No chats found")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	// Convert the chats to the chat records
-	chatRecords := convertChatsToRecords(targetChat)
+	chatRecords := convertChatsToRecords(allChats)
 
 	// Insert the chats to the database
 	if err := InsertChatRecord(ctx, dbClient, chatRecords); err != nil {
