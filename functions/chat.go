@@ -9,6 +9,7 @@ import (
 	"github.com/Code-Hex/synchro/tz"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/uptrace/bun"
+	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/text/unicode/norm"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
@@ -126,11 +127,23 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Because the chat of the target of acquisition is focused on the live video,
 	// and chatting to other videos during the live is not necessary for the use case.
 	if len(liveVideos) > 0 {
+		if len(liveVideos) > 1 {
+			ids := make([]string, len(liveVideos))
+			for i, video := range liveVideos {
+				ids[i] = video.SourceID
+			}
+			slog.Error("Multiple live videos found",
+				slog.Group("liveVideo", "sourceId", ids, "error", "multiple live videos"),
+			)
+		}
 		slog.Info(
 			"Live video found",
 			slog.Group("liveVideo", "chatId", liveVideos[0].ChatID),
 		)
-		// TODO: Implement the process for live videos
+		if err := liveChatWatcher(ctx, ytSvc, dbClient, liveVideos[0], threshold, targetChannels); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
 		// Other videos are skipped
 		w.WriteHeader(http.StatusOK)
@@ -222,6 +235,72 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	slog.Info("chatWatcher")
+}
+
+func liveChatWatcher(ctx context.Context, ytSvc *youtube.Service, dbClient *bun.DB, video VideoInfo, threshold int64, target []string) error {
+	// Fetch chats by YouTube API
+	chats, err := fetchChatsByChatID(ctx, ytSvc, video, 0)
+	if err != nil {
+		slog.Error("Failed to fetch chats from YouTube API",
+			slog.Group("fetchChat", "chatId", video.ChatID, "error", err),
+		)
+		return err
+	}
+
+	// Filter the chats by the threshold
+	chats = filterChatsByPublishedAt(chats, threshold)
+	// Separate the chats by the author channel ID
+	targetChats, otherChats := separateChatsByAuthor(chats, target)
+
+	if len(targetChats) != 0 {
+		// If the length of the targetChats is not 0, save the chats to the database
+		chatRecords := convertChatsToRecords(targetChats)
+		// Skip sentiment analysis of target chat during live
+		// Because the negativity flag isn't necessary for the use case when the chat is in live
+		if err := InsertChatRecord(ctx, dbClient, chatRecords); err != nil {
+			slog.Error("Failed to insert chat records",
+				slog.Group("saveChat", slog.Group("database", "error", err)),
+			)
+			return err
+		}
+	}
+
+	// Chats from non-targets are analyzed independently by an external service
+	// Skip if the URL of the external service is not set in the environment variable
+	serviceUrl := os.Getenv("EXTERNAL_SERVICE_URL")
+	if serviceUrl == "" {
+		slog.Info("No external service URL set")
+		return nil
+	}
+
+	// Send the chats to the external service
+	httpClient := &http.Client{}
+
+	// Compress the otherChats with MessagePack
+	pack, err := msgpack.Marshal(otherChats)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", serviceUrl, strings.NewReader(string(pack)))
+	if err != nil {
+		slog.Error("Failed to create request",
+			slog.Group("externalService", "error", err),
+		)
+		return err
+	}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func(resp *http.Response) {
+		err := resp.Body.Close()
+		if err != nil {
+			slog.Error("failed to close response body", "error", err)
+		}
+	}(resp)
+
+	return nil
 }
 
 func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video VideoInfo, length int64) ([]Chat, error) {
