@@ -141,43 +141,15 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		)
 		panic(fmt.Sprintf("Failed to unmarshal static target: %v", err))
 	}
+	var allChats []Chat
 
-	// Combine the upcoming videos and the static target as fetching targets
-	targetVideos := append(upcomingVideos, staticTarget)
-
-	// Check publishedAt of the last chat and update threshold if the last chat is newer than the threshold set by span
-	// for preventing the same chat from being inserted multiple times
-	lastRecordedChat, err := getLastPublishedAtOfRecord(ctx, dbClient)
+	// Fetch chats from static target video
+	staticChats, err := fetchStaticTarget(ctx, ytSvc, staticTarget, threshold, targetChannels)
 	if err != nil {
-		slog.Error("Failed to get last recorded chat",
-			slog.Group("saveChat", slog.Group("database", "error", err)),
-		)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if lastRecordedChat != 0 && lastRecordedChat > threshold {
-		threshold = lastRecordedChat
-	}
-
-	// Fetch chats from YouTube API
-	var allChats []Chat
-	for _, video := range targetVideos {
-		chats, err := fetchChatsByChatID(ctx, ytSvc, video, 0)
-		if err != nil {
-			slog.Error("Failed to fetch chats from YouTube API",
-				slog.Group("fetchChat", "chatId", video.ChatID, "error", err),
-			)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		// Filter chats by publishedAt
-		chats = filterChatsByPublishedAt(chats, threshold)
-		// Filter chats by author
-		chats, _ = separateChatsByAuthor(chats, targetChannels)
-
-		allChats = append(allChats, chats...)
-	}
+	allChats = append(allChats, staticChats...)
 
 	// If the length of the staticChats is 0, return
 	if len(allChats) == 0 {
@@ -239,4 +211,22 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 	}
 
 	return result, nil
+}
+
+func fetchStaticTarget(ctx context.Context, ytSvc *youtube.Service, video VideoInfo, threshold int64, target []string) ([]Chat, error) {
+	// Fetch chats by YouTube API
+	chats, err := fetchChatsByChatID(ctx, ytSvc, video, 0)
+	if err != nil {
+		slog.Error("Failed to fetch chats from YouTube API",
+			slog.Group("fetchChat", "chatId", video.ChatID, "error", err),
+		)
+		return nil, err
+	}
+
+	// Filter the chats by the threshold
+	chats = filterChatsByPublishedAt(chats, threshold)
+	// Separate the chats by the author channel ID
+	targetChats, _ := separateChatsByAuthor(chats, target)
+
+	return targetChats, nil
 }
