@@ -255,6 +255,8 @@ func liveChatWatcher(ctx context.Context, ytSvc *youtube.Service, dbClient *bun.
 	if len(targetChats) != 0 {
 		// If the length of the targetChats is not 0, save the chats to the database
 		chatRecords := convertChatsToRecords(targetChats)
+		// Skip sentiment analysis of target chat during live
+		// Because the negativity flag isn't necessary for the use case when the chat is in live
 		if err := InsertChatRecord(ctx, dbClient, chatRecords); err != nil {
 			slog.Error("Failed to insert chat records",
 				slog.Group("saveChat", slog.Group("database", "error", err)),
