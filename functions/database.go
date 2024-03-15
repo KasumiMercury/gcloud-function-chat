@@ -30,7 +30,7 @@ func getLastPublishedAtOfRecordEachSource(ctx context.Context, db *bun.DB, sourc
 	records := make([]ChatRecord, 0)
 	err := db.NewSelect().
 		Model(&records).
-		ColumnExpr("source_id", "MAX(published_at) as published_at").
+		ColumnExpr("source_id, MAX(published_at) as published_at").
 		Where("source_id IN (?)", source).
 		Group("source_id").
 		Scan(ctx)
