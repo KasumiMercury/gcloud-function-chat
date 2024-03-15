@@ -32,6 +32,5 @@ type VideoRecord struct {
 
 type VideoInfo struct {
 	SourceID string `json:"sourceId"`
-	Status   string `json:"status"`
 	ChatID   string `json:"chatId"`
 }
