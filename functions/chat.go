@@ -9,6 +9,7 @@ import (
 	"github.com/Code-Hex/synchro/tz"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
 	"github.com/uptrace/bun"
+	"github.com/vmihailenco/msgpack/v5"
 	"golang.org/x/text/unicode/norm"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
@@ -237,7 +238,7 @@ func liveChatWatcher(ctx context.Context, ytSvc *youtube.Service, dbClient *bun.
 	// Filter the chats by the threshold
 	chats = filterChatsByPublishedAt(chats, threshold)
 	// Separate the chats by the author channel ID
-	targetChats, _ := separateChatsByAuthor(chats, target)
+	targetChats, otherChats := separateChatsByAuthor(chats, target)
 
 	if len(targetChats) != 0 {
 		// If the length of the targetChats is not 0, save the chats to the database
@@ -260,7 +261,14 @@ func liveChatWatcher(ctx context.Context, ytSvc *youtube.Service, dbClient *bun.
 
 	// Send the chats to the external service
 	httpClient := &http.Client{}
-	req, err := http.NewRequest("POST", serviceUrl, strings.NewReader("chats"))
+
+	// Compress the otherChats with MessagePack
+	pack, err := msgpack.Marshal(otherChats)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", serviceUrl, strings.NewReader(string(pack)))
 	if err != nil {
 		slog.Error("Failed to create request",
 			slog.Group("externalService", "error", err),
