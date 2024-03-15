@@ -151,6 +151,10 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	slog.Info(
+		"Fetched chats from upcoming video",
+		slog.Group("fetchChat", "chatId", staticTarget.ChatID, slog.Group("static", "sourceId", staticTarget.SourceID, "count", len(staticChats))),
+	)
 	allChats = append(allChats, staticChats...)
 
 	// If upcoming videos are more than 1, find the priority target
@@ -166,6 +170,10 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	slog.Info(
+		"Fetched chats from upcoming video",
+		slog.Group("fetchChat", "chatId", upcomingTarget.ChatID, slog.Group("upcoming", "sourceId", upcomingTarget.SourceID, "count", len(upcomingChats))),
+	)
 	// Filter the chats by the threshold if the lastPublished is not 0
 	// If the lastPublished is 0, the chats are not filtered and all chats are appended to the allChats
 	if lastPublished != 0 {
@@ -213,7 +221,7 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 	if err != nil {
 		slog.Error(
 			"Failed to run LiveChatMessages.List",
-			slog.Group("fetchChat", "chatId", video.ChatID, slog.Group("YouTubeAPI"), "error", err),
+			slog.Group("fetchChat", "chatId", video.ChatID, slog.Group("YouTubeAPI", "error", err)),
 		)
 		return nil, err
 	}
