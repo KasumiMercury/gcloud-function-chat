@@ -7,6 +7,7 @@ import (
 	"github.com/Code-Hex/synchro"
 	"github.com/Code-Hex/synchro/tz"
 	"github.com/GoogleCloudPlatform/functions-framework-go/functions"
+	"github.com/uptrace/bun"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 	"log/slog"
@@ -144,7 +145,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	var allChats []Chat
 
 	// Fetch chats from static target video
-	staticChats, err := fetchStaticTarget(ctx, ytSvc, staticTarget, threshold, targetChannels)
+	staticChats, err := fetchStaticTarget(ctx, dbClient, ytSvc, staticTarget, threshold, targetChannels)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -213,7 +214,21 @@ func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video Video
 	return result, nil
 }
 
-func fetchStaticTarget(ctx context.Context, ytSvc *youtube.Service, video VideoInfo, threshold int64, target []string) ([]Chat, error) {
+func fetchStaticTarget(ctx context.Context, db *bun.DB, ytSvc *youtube.Service, video VideoInfo, threshold int64, target []string) ([]Chat, error) {
+	// Get the last publishedAt of the record
+	pldRec, err := getLastPublishedAtOfRecordEachSource(ctx, db, []string{video.SourceID})
+	if err != nil {
+		slog.Error("Failed to get last publishedAt of record",
+			slog.Group("fetchChat", "sourceId", video.SourceID, slog.Group("database", "error", err)),
+		)
+		return nil, err
+	}
+	lastPublished := pldRec[video.SourceID]
+	// If the last published is greater than the threshold, set the threshold to the last published
+	if lastPublished > threshold {
+		threshold = lastPublished
+	}
+
 	// Fetch chats by YouTube API
 	chats, err := fetchChatsByChatID(ctx, ytSvc, video, 0)
 	if err != nil {
