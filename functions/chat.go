@@ -173,32 +173,34 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	)
 	allChats = append(allChats, staticChats...)
 
-	// If upcoming videos are more than 1, find the priority target
-	// to reduce the number of API requests and prevent overuse of quota of YouTube API
-	upcomingTarget, lastPublished, err := findPriorityTarget(ctx, dbClient, upcomingVideos)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if len(upcomingVideos) != 0 {
+		// If upcoming videos are more than 1, find the priority target
+		// to reduce the number of API requests and prevent overuse of quota of YouTube API
+		upcomingTarget, lastPublished, err := findPriorityTarget(ctx, dbClient, upcomingVideos)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Fetch chats from upcoming videos
+		upcomingChats, err := fetchChatsByChatID(ctx, ytSvc, upcomingTarget, 0)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		slog.Info(
+			"Fetched chats from upcoming video",
+			slog.Group("fetchChat", "chatId", upcomingTarget.ChatID, slog.Group("upcoming", "sourceId", upcomingTarget.SourceID, "count", len(upcomingChats))),
+		)
+		// Filter the chats by the threshold if the lastPublished is not 0
+		// If the lastPublished is 0, the chats are not filtered and all chats are appended to the allChats
+		if lastPublished != 0 {
+			upcomingChats = filterChatsByPublishedAt(upcomingChats, lastPublished)
+		}
+		// Filter the chats by the target channels
+		upcomingChats, _ = separateChatsByAuthor(upcomingChats, targetChannels)
+		// Append the chats to the allChats
+		allChats = append(allChats, upcomingChats...)
 	}
-	// Fetch chats from upcoming videos
-	upcomingChats, err := fetchChatsByChatID(ctx, ytSvc, upcomingTarget, 0)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	slog.Info(
-		"Fetched chats from upcoming video",
-		slog.Group("fetchChat", "chatId", upcomingTarget.ChatID, slog.Group("upcoming", "sourceId", upcomingTarget.SourceID, "count", len(upcomingChats))),
-	)
-	// Filter the chats by the threshold if the lastPublished is not 0
-	// If the lastPublished is 0, the chats are not filtered and all chats are appended to the allChats
-	if lastPublished != 0 {
-		upcomingChats = filterChatsByPublishedAt(upcomingChats, lastPublished)
-	}
-	// Filter the chats by the target channels
-	upcomingChats, _ = separateChatsByAuthor(upcomingChats, targetChannels)
-	// Append the chats to the allChats
-	allChats = append(allChats, upcomingChats...)
 
 	// If the length of the staticChats is 0, return
 	if len(allChats) == 0 {
