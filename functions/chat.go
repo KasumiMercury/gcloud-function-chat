@@ -121,6 +121,10 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Because the chat of the target of acquisition is focused on the live video,
 	// and chatting to other videos during the live is not necessary for the use case.
 	if len(liveVideos) > 0 {
+		slog.Info(
+			"Live video found",
+			slog.Group("liveVideo", "chatId", liveVideos[0].ChatID),
+		)
 		// TODO: Implement the process for live videos
 
 		// Other videos are skipped
