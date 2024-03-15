@@ -224,6 +224,35 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	slog.Info("chatWatcher")
 }
 
+func liveChatWatcher(ctx context.Context, ytSvc *youtube.Service, dbClient *bun.DB, video VideoInfo, threshold int64, target []string) error {
+	// Fetch chats by YouTube API
+	chats, err := fetchChatsByChatID(ctx, ytSvc, video, 0)
+	if err != nil {
+		slog.Error("Failed to fetch chats from YouTube API",
+			slog.Group("fetchChat", "chatId", video.ChatID, "error", err),
+		)
+		return err
+	}
+
+	// Filter the chats by the threshold
+	chats = filterChatsByPublishedAt(chats, threshold)
+	// Separate the chats by the author channel ID
+	targetChats, _ := separateChatsByAuthor(chats, target)
+
+	if len(targetChats) != 0 {
+		// If the length of the targetChats is not 0, save the chats to the database
+		chatRecords := convertChatsToRecords(targetChats)
+		if err := InsertChatRecord(ctx, dbClient, chatRecords); err != nil {
+			slog.Error("Failed to insert chat records",
+				slog.Group("saveChat", slog.Group("database", "error", err)),
+			)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func fetchChatsByChatID(ctx context.Context, ytSvc *youtube.Service, video VideoInfo, length int64) ([]Chat, error) {
 	call := ytSvc.LiveChatMessages.List(video.ChatID, []string{"snippet"})
 
