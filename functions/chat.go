@@ -166,8 +166,11 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	// Filter the chats by the threshold
-	upcomingChats = filterChatsByPublishedAt(upcomingChats, lastPublished)
+	// Filter the chats by the threshold if the lastPublished is not 0
+	// If the lastPublished is 0, the chats are not filtered and all chats are appended to the allChats
+	if lastPublished != 0 {
+		upcomingChats = filterChatsByPublishedAt(upcomingChats, lastPublished)
+	}
 	// Filter the chats by the target channels
 	upcomingChats, _ = separateChatsByAuthor(upcomingChats, targetChannels)
 	// Append the chats to the allChats
