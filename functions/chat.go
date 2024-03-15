@@ -91,7 +91,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 
 	// Get info of videos with the target status
 	targetStatus := []string{"live", "upcoming"}
-	targetVideos, err := getVideoRecordByStatus(ctx, dbClient, targetStatus)
+	videoRecords, err := getVideoRecordByStatus(ctx, dbClient, targetStatus)
 	if err != nil {
 		slog.Error("Failed to get video records",
 			slog.Group("database", "error", err),
@@ -103,7 +103,7 @@ func chatWatcher(w http.ResponseWriter, r *http.Request) {
 	// Separate processing by status: live or upcoming
 	var liveVideos []VideoInfo
 	var upcomingVideos []VideoInfo
-	for _, video := range targetVideos {
+	for _, video := range videoRecords {
 		if video.Status == "live" {
 			liveVideos = append(liveVideos, VideoInfo{
 				ChatID:   video.ChatID,
